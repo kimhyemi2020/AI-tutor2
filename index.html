@@ -1,0 +1,326 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>디지털 코딩 튜터</title>
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: #f4f5f7;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      min-height: 100vh;
+    }
+    .app {
+      width: 100%;
+      max-width: 960px;
+      height: 90vh;
+      background: #ffffff;
+      border-radius: 16px;
+      box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+      display: flex;
+      flex-direction: column;
+      overflow: hidden;
+    }
+    .header {
+      padding: 16px 20px;
+      border-bottom: 1px solid #e2e4e8;
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: linear-gradient(90deg, #2b6cb0, #4299e1);
+      color: #ffffff;
+    }
+    .header-title {
+      font-size: 18px;
+      font-weight: 700;
+    }
+    .header-sub {
+      font-size: 12px;
+      opacity: 0.9;
+    }
+    .chat {
+      flex: 1;
+      padding: 16px 20px;
+      overflow-y: auto;
+      background: #f7fafc;
+    }
+    .message {
+      margin-bottom: 12px;
+      max-width: 80%;
+      padding: 10px 12px;
+      border-radius: 10px;
+      font-size: 14px;
+      line-height: 1.5;
+      white-space: pre-wrap;
+      word-break: break-word;
+    }
+    .message.user {
+      margin-left: auto;
+      background: #2b6cb0;
+      color: #ffffff;
+      border-bottom-right-radius: 2px;
+    }
+    .message.bot {
+      margin-right: auto;
+      background: #edf2f7;
+      border-bottom-left-radius: 2px;
+    }
+    .message .label {
+      font-size: 11px;
+      font-weight: 700;
+      margin-bottom: 4px;
+      opacity: 0.8;
+    }
+    .input-area {
+      border-top: 1px solid #e2e4e8;
+      padding: 10px 12px;
+      background: #ffffff;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+    }
+    .input-row {
+      display: flex;
+      gap: 8px;
+    }
+    textarea {
+      flex: 1;
+      resize: none;
+      border-radius: 8px;
+      border: 1px solid #cbd5e0;
+      padding: 8px 10px;
+      font-size: 14px;
+      font-family: inherit;
+      outline: none;
+      min-height: 60px;
+    }
+    textarea:focus {
+      border-color: #3182ce;
+      box-shadow: 0 0 0 2px rgba(49,130,206,0.15);
+    }
+    button {
+      border: none;
+      border-radius: 8px;
+      padding: 0 16px;
+      font-size: 14px;
+      font-weight: 600;
+      cursor: pointer;
+      background: #2b6cb0;
+      color: #ffffff;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 80px;
+    }
+    button:disabled {
+      opacity: 0.6;
+      cursor: not-allowed;
+    }
+    .small-row {
+      display: flex;
+      gap: 8px;
+      font-size: 11px;
+      color: #4a5568;
+      align-items: center;
+    }
+    .small-row input {
+      flex: 1;
+      font-size: 11px;
+      padding: 4px 6px;
+      border-radius: 6px;
+      border: 1px solid #cbd5e0;
+    }
+    .system-info {
+      font-size: 11px;
+      color: #718096;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="header">
+      <div>
+        <div class="header-title">디지털 코딩 튜터</div>
+        <div class="header-sub">정답을 주지 않고, 생각을 이끌어주는 AI 보조교사</div>
+      </div>
+    </div>
+
+    <div id="chat" class="chat"></div>
+
+    <div class="input-area">
+      <div class="small-row">
+        <span>Google AI Studio API 키</span>
+        <input id="apiKey" type="password" placeholder="여기에 API 키를 붙여넣으세요" />
+      </div>
+      <div class="system-info">
+        ※ 이 튜터는 고등학교 정보 수업용으로 설계되어 있습니다. 시스템 프롬프트 내용은 코드에서 수정할 수 있습니다.
+      </div>
+      <div class="input-row">
+        <textarea id="userInput" placeholder="튜터에게 질문을 남겨보세요. (예: 반복문이 왜 필요한지 잘 모르겠어요.)"></textarea>
+        <button id="sendBtn">전송</button>
+      </div>
+    </div>
+  </div>
+
+ <script>
+  // ✅ 1. 디지털 튜터의 성격을 정의하는 부분 (SYSTEM_INSTRUCTION)
+  const SYSTEM_INSTRUCTION = `
+당신은 '디지털 코딩 튜터'입니다. 당신의 역할은 고등학교 정보 교과 수업에서 학생이 파이썬과 프로그래밍 개념을 스스로 이해하도록 돕는 것입니다.
+
+반드시 다음 원칙을 지키십시오.
+
+1. 항상 공손한 한국어 존댓말로 대화합니다.
+2. 정답 코드나 전체 정답을 바로 제시하지 않습니다.
+3. 학생의 현재 이해 수준을 먼저 확인하는 질문을 1~2개 던집니다.
+4. 힌트를 줄 때는
+   - "어떤 부분이 헷갈리는지"를 다시 묻게 하거나
+   - 개념을 매우 짧게 설명한 뒤
+   - 학생이 스스로 시도할 수 있도록 간단한 방향만 제시합니다.
+5. 전체 코드를 대신 작성하지 말고, 학생이 이미 작성한 코드의
+   - 오류 위치를 추측하게 만들고
+   - 스스로 고칠 수 있도록 유도 질문을 합니다.
+6. 학생이 여러 번 요청해도, "정답 전체 코드를 그대로 달라"는 요구는 정중하게 거절하고,
+   "어느 부분까지 스스로 시도해 보았는지"를 먼저 물어본 뒤 그 다음 단계를 함께 생각해 줍니다.
+7. 평가나 과제의 정답을 대신 만들어 주지 않습니다. 대신 접근 방법, 사고 과정, 필요한 개념을 안내합니다.
+
+당신의 최우선 목표는 "정답 제공"이 아니라 "학생의 사고를 촉진하는 것"입니다.
+  `.trim();
+
+  // ✅ 2. Gemini 모델 이름
+ const MODEL_NAME = "models/gemini-2.5-flash";
+
+
+  const chatEl = document.getElementById("chat");
+  const userInputEl = document.getElementById("userInput");
+  const sendBtn = document.getElementById("sendBtn");
+  const apiKeyInput = document.getElementById("apiKey");
+
+  // 대화 히스토리 (Gemini 형식에 맞게 저장)
+  let history = [];
+
+  function addMessage(role, text) {
+    const msg = document.createElement("div");
+    msg.classList.add("message", role === "user" ? "user" : "bot");
+
+    const label = document.createElement("div");
+    label.classList.add("label");
+    label.textContent = role === "user" ? "학생" : "디지털 튜터";
+
+    const body = document.createElement("div");
+    body.textContent = text;
+
+    msg.appendChild(label);
+    msg.appendChild(body);
+    chatEl.appendChild(msg);
+    chatEl.scrollTop = chatEl.scrollHeight;
+  }
+
+  async function callGemini(userText) {
+    const apiKey = apiKeyInput.value.trim();
+    if (!apiKey) {
+      alert("먼저 API 키를 입력해주세요.");
+      return;
+    }
+
+    sendBtn.disabled = true;
+    sendBtn.textContent = "응답 중...";
+
+    // 사용자 메시지를 히스토리에 추가
+    history.push({
+      role: "user",
+      parts: [{ text: userText }]
+    });
+
+    try {
+      const response = await fetch(
+        `https://generativelanguage.googleapis.com/v1beta/${MODEL_NAME}:generateContent?key=${apiKey}`,
+        {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            // ❗ system은 role을 "system"으로 지정
+            systemInstruction: {
+              role: "system",
+              parts: [{ text: SYSTEM_INSTRUCTION }]
+            },
+            contents: history
+          })
+        }
+      );
+
+      const rawText = await response.text();
+
+      if (!response.ok) {
+        console.error("API 오류 응답:", rawText);
+        addMessage("bot", "오류가 발생했습니다: " + rawText);
+        return;
+      }
+
+      let data;
+      try {
+        data = JSON.parse(rawText);
+      } catch (e) {
+        console.error("JSON 파싱 오류:", e, rawText);
+        addMessage("bot", "응답을 해석하는 중에 문제가 발생했습니다.");
+        return;
+      }
+
+      const candidate = data.candidates && data.candidates[0];
+      const content = candidate && candidate.content;
+      const parts = content && content.parts;
+      const text =
+        parts && parts[0] && parts[0].text
+          ? parts[0].text.trim()
+          : "(응답을 가져오지 못했습니다.)";
+
+      addMessage("bot", text);
+
+      // Gemini 히스토리에 모델 응답 추가
+      history.push({
+        role: "model",
+        parts: [{ text }]
+      });
+    } catch (err) {
+      console.error(err);
+      addMessage(
+        "bot",
+        "죄송해요, 응답을 가져오는 중에 알 수 없는 문제가 발생했습니다. 잠시 후 다시 시도해 주세요."
+      );
+    } finally {
+      sendBtn.disabled = false;
+      sendBtn.textContent = "전송";
+    }
+  }
+
+  sendBtn.addEventListener("click", () => {
+    const text = userInputEl.value.trim();
+    if (!text) return;
+    addMessage("user", text);
+    userInputEl.value = "";
+    callGemini(text);
+  });
+
+  userInputEl.addEventListener("keydown", (e) => {
+    if (e.key === "Enter" && !e.shiftKey) {
+      e.preventDefault();
+      sendBtn.click();
+    }
+  });
+
+  // 시작 시 안내 메시지
+  window.addEventListener("load", () => {
+    addMessage(
+      "bot",
+      "안녕하세요. 디지털 코딩 튜터입니다. 파이썬이나 프로그래밍과 관련된 궁금한 점을 알려주시면, 정답 대신 생각할 수 있는 힌트와 질문을 드릴게요."
+    );
+  });
+</script>
+
+</body>
+</html>
